@@ -193,7 +193,7 @@
                         {/* Tabs */}
                         <div className="bg-white rounded-lg shadow mb-6">
                             <div className="border-b border-gray-200">
-                                <nav className="flex space-x-8 px-6" aria-label="Tabs">
+                                <nav className="flex flex-wrap space-x-4 px-6" aria-label="Tabs">
                                     <button
                                         onClick={() => setActiveTab('overview')}
                                         className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -205,6 +205,26 @@
                                         All Projects ({processedData.length})
                                     </button>
                                     <button
+                                        onClick={() => setActiveTab('all-invoices')}
+                                        className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                                            activeTab === 'all-invoices'
+                                                ? 'border-purple-500 text-purple-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        📄 All Invoices ({processedData.filter(d => d.invoice).length})
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('pending-invoiced')}
+                                        className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                                            activeTab === 'pending-invoiced'
+                                                ? 'border-orange-500 text-orange-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        💸 Pending Payments ({stats.pending + stats.overdue})
+                                    </button>
+                                    <button
                                         onClick={() => setActiveTab('overdue')}
                                         className={`py-4 px-1 border-b-2 font-medium text-sm ${
                                             activeTab === 'overdue'
@@ -213,16 +233,6 @@
                                         }`}
                                     >
                                         🚨 Overdue ({stats.overdue})
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('pending')}
-                                        className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                                            activeTab === 'pending'
-                                                ? 'border-yellow-500 text-yellow-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        ⏳ Pending Payment ({stats.pending})
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('po-no-invoice')}
@@ -285,6 +295,8 @@
                                         {filteredData
                                             .filter(item => {
                                                 if (activeTab === 'overview') return true;
+                                                if (activeTab === 'all-invoices') return item.invoice;
+                                                if (activeTab === 'pending-invoiced') return item.status === 'pending' || item.status === 'overdue';
                                                 return item.status === activeTab;
                                             })
                                             .map((item, index) => (
@@ -336,7 +348,12 @@
                                         ))}
                                     </tbody>
                                 </table>
-                                {filteredData.filter(item => activeTab === 'overview' || item.status === activeTab).length === 0 && (
+                                {filteredData.filter(item => {
+                                    if (activeTab === 'overview') return true;
+                                    if (activeTab === 'all-invoices') return item.invoice;
+                                    if (activeTab === 'pending-invoiced') return item.status === 'pending' || item.status === 'overdue';
+                                    return item.status === activeTab;
+                                }).length === 0 && (
                                     <div className="text-center py-12 text-gray-500">
                                         No records found matching your criteria
                                     </div>
