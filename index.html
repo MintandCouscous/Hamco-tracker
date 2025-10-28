@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hamco Project Tracker Dashboard</title>
+    <title>Hamco Project Tracker Dashboard (Live)</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
@@ -23,78 +24,117 @@
         .status-overdue { background-color: #fee2e2; color: #991b1b; }
         .status-paid { background-color: #d1fae5; color: #065f46; }
         .status-awaiting { background-color: #dbeafe; color: #1e40af; }
+        .loader {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-gray-50">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useMemo } = React;
+        const { useState, useMemo, useEffect } = React;
 
-        const rawData = [
-            {srNo: 1, client: "Gulf Maid", work: "Transformer oil supply Filtration and testing", poNumber: "1900000428", poValue: 168500, poDate: "15/01/2025", invoice: "HM-2025-24375", invoiceDate: "20/01/25", amount: 96887.50, comments: ""},
-            {srNo: 2, client: "Aujan", work: "Water Tank area addl. Works", poNumber: "ORD60569", poValue: 13750, poDate: "18/03/2025", invoice: "HM-2025-24856", invoiceDate: "27/04/25", amount: 15812.50, comments: ""},
-            {srNo: 3, client: "FPI", work: "Chemical Storage tank Earthing and Testing", poNumber: "", poValue: 0, poDate: "", invoice: "", invoiceDate: "", amount: 0, comments: "AM"},
-            {srNo: 4, client: "Aujan", work: "New Compressor Cabling work", poNumber: "CPX60803", poValue: 245622, poDate: "12/05/2025", invoice: "HM-2025-25243", invoiceDate: "15/07/25", amount: 282465.30, comments: "Payment after 90 Days"},
-            {srNo: 5, client: "Aujan", work: "New Battery Chargin Station cabling work", poNumber: "", poValue: 0, poDate: "", invoice: "", invoiceDate: "", amount: 0, comments: "H"},
-            {srNo: 6, client: "Aujan", work: "Panel Shifting work", poNumber: "", poValue: 0, poDate: "", invoice: "", invoiceDate: "", amount: 0, comments: "H"},
-            {srNo: 7, client: "JOTUN_JEDDAH", work: "Split Core CTs and Multifunction Meters supply", poNumber: "", poValue: 0, poDate: "", invoice: "", invoiceDate: "", amount: 0, comments: "H"},
-            {srNo: 8, client: "Aujan", work: "Canteen Toilet-2 Renovation works", poNumber: "", poValue: 0, poDate: "", invoice: "", invoiceDate: "", amount: 0, comments: "AM"},
-            {srNo: 9, client: "iEnergy", work: "Flood Lights and High Bay Lights replacement", poNumber: "", poValue: 0, poDate: "", invoice: "", invoiceDate: "", amount: 0, comments: "Sent to Vinose by Jayasingh"},
-            {srNo: 10, client: "FPI", work: "Existing Lights separation with Photocell panel", poNumber: "", poValue: 0, poDate: "", invoice: "", invoiceDate: "", amount: 0, comments: "Sent to Jahangir by Jayasingh"},
-            {srNo: 16, client: "JOTUN", work: "Security Washroom tiles replacement", poNumber: "156702649", poValue: 4135, poDate: "10/02/2025", invoice: "AM-25-00081", invoiceDate: "18/02/25", amount: 4755.25, comments: "Payment received on 20/03/2025"},
-            {srNo: 19, client: "NOV_3", work: "Extruder - 3 Electrical works offer", poNumber: "PO-0005648", poValue: 180593.73, poDate: "15/09/2025", invoice: "HM-2025-25583", invoiceDate: "17/09/25", amount: 207683, comments: "Payment received on 30/09/2025"},
-            {srNo: 26, client: "ChampionX", work: "Special Cable OLFLEX EB CY 5X1", poNumber: "4504497871", poValue: 8463.75, poDate: "13/02/2025", invoice: "HM-2024-24746", invoiceDate: "10/04/25", amount: 9733.31, comments: "Payment Received on 18/06/2025"},
-            {srNo: 31, client: "DKC", work: "Electrical & Instrumentaion", poNumber: "24042025-08", poValue: 643322.2, poDate: "24/04/2025", invoice: "HM-25-24867", invoiceDate: "29/04/25", amount: 739620.53, comments: "Sent by Muz on 04/05/2025"},
-            {srNo: 32, client: "DKC", work: "Mechanical Piping works", poNumber: "24042025-07", poValue: 667341.5, poDate: "24/04/2025", invoice: "HM-25-24868", invoiceDate: "29/04/25", amount: 767442.73, comments: "Without VAT"},
-            {srNo: 38, client: "ChampionX", work: "Electrical Panels SLD Preparation offer", poNumber: "4504500861", poValue: 17500, poDate: "03/03/2025", invoice: "HM-2025-25329", invoiceDate: "31/07/25", amount: 20125, comments: ""},
-            {srNo: 39, client: "Azman Steel Galvanizing", work: "Lightning Arrestors Scope", poNumber: "FASGC-SOP-05", poValue: 63464.75, poDate: "10/03/2025", invoice: "HM-2025-24574", invoiceDate: "13/03/25", amount: 0, comments: ""},
-            {srNo: 43, client: "NOV_3", work: "Winder/Extractor Wiring Offer", poNumber: "PO-0005008", poValue: 58833, poDate: "10/04/2025", invoice: "HM-2025-24788 HM-2025-25441", invoiceDate: "16/04/2025 27/08/2025", amount: 67657.95, comments: ""},
-            {srNo: 48, client: "NOV_3", work: "Winder /Extractor Conduiting/JBs offer", poNumber: "PO-0004970", poValue: 151000, poDate: "29/03/2025", invoice: "HM-2025-24739 - HM-2025-25335", invoiceDate: "09/04/2025 05/08/2025", amount: 180445, comments: ""},
-            {srNo: 50, client: "DKC", work: "Lightning Arrestors Scope", poNumber: "24042025-09", poValue: 51125, poDate: "24/04/2025", invoice: "HM-25-24869 HAMCO-2025-25381", invoiceDate: "29/04/2025 14/08/2025", amount: 61625, comments: "Without VAT"},
-            {srNo: 51, client: "JOTUN", work: "MEZZANINE FLOOR ADDL. WORK", poNumber: "162280156", poValue: 85499, poDate: "22/05/2025", invoice: "HM-2025-25307 HM-2025-25468", invoiceDate: "29/07/2025 27/08/2025", amount: 98323.85, comments: "Dust collector work also included-Sent by RJN"},
-            {srNo: 54, client: "Akzonobel", work: "EXD. Emergency Lights & Exit Signs", poNumber: "8080442938", poValue: 24775, poDate: "12/05/2025", invoice: "AM-25-00149", invoiceDate: "28/07/25", amount: 28491.25, comments: "Paid to Peter: 10,633.93"},
-            {srNo: 57, client: "ChampionX", work: "Addl. Works-Airline", poNumber: "4504510685", poValue: 5800, poDate: "04/05/2025", invoice: "", invoiceDate: "", amount: 0, comments: ""},
-            {srNo: 59, client: "ChampionX", work: "Atex Lights replacement", poNumber: "4504510904", poValue: 151200, poDate: "06/05/2025", invoice: "HM-2025-24932 HM-2025-25332", invoiceDate: "08/05/2025 05/08/2025", amount: 173880, comments: ""},
-            {srNo: 63, client: "NOV_3", work: "Race Way", poNumber: "5168", poValue: 12702.06, poDate: "18/05/2025", invoice: "HM-25-25016", invoiceDate: "25/05/25", amount: 14607.31, comments: "Payment received"},
-            {srNo: 70, client: "Jotun", work: "L shape Stand near Mezzanine Cleaning area", poNumber: "162644158", poValue: 5250, poDate: "19/05/2025", invoice: "HM-2025-25181", invoiceDate: "05/07/25", amount: 6037.50, comments: ""},
-            {srNo: 72, client: "NOV_3", work: "Studs supply", poNumber: "5170", poValue: 2029.50, poDate: "18/05/2025", invoice: "HM-25-24996", invoiceDate: "20/05/25", amount: 2333.93, comments: "Payment received"},
-            {srNo: 73, client: "ChampionX", work: "EXC. Push button Stn.", poNumber: "4504512516", poValue: 2250, poDate: "15/05/2025", invoice: "HM-2025-25077", invoiceDate: "15/06/25", amount: 2587.50, comments: "Recvd. 13/08/25"},
-            {srNo: 76, client: "NOV2_ Ali Saffar", work: "Power & Control Panel for Exhaust Fans", poNumber: "407856", poValue: 7985, poDate: "13/05/2025", invoice: "HM-25-25018", invoiceDate: "28/05/25", amount: 9182.75, comments: "Received on 14th August 2025"},
-            {srNo: 82, client: "ChampionX", work: "EXD. High Bay lights - 200W", poNumber: "4504513225", poValue: 22750, poDate: "20/05/2025", invoice: "HM-25-25015", invoiceDate: "25/05/25", amount: 26162.50, comments: "Recvd. 23/07/2025"},
-            {srNo: 92, client: "JOTUN", work: "Fabrication&Modification of L-6 packing box filling Hood", poNumber: "162643987", poValue: 5775, poDate: "19/05/2025", invoice: "HM-2025-25377", invoiceDate: "21/08/25", amount: 6641.25, comments: ""},
-            {srNo: 93, client: "JOTUN", work: "Mill 6 Granules/chips hopper feeder - 2", poNumber: "163110371", poValue: 3175, poDate: "28/05/2025", invoice: "", invoiceDate: "", amount: 0, comments: ""},
-            {srNo: 94, client: "JOTUN", work: "Fabrication&Modification of L-5 Packing station box filling Hood", poNumber: "163110323", poValue: 2950, poDate: "28/05/2025", invoice: "HM-2025-23715", invoiceDate: "14/10/25", amount: 3392.50, comments: ""},
-            {srNo: 95, client: "Champion X", work: "Lightning Arrestors Supply, Installation offer", poNumber: "4504516492", poValue: 153000, poDate: "11/06/2025", invoice: "HM-2025-25072 HM-2025-25667", invoiceDate: "17/06/2025 06/10/2025", amount: 175950, comments: "Recvd. 13/08/25"},
-            {srNo: 96, client: "ChampionX", work: "200W LED High bay Lights 23Nos. Supply Installation", poNumber: "4504516538", poValue: 76750, poDate: "11/06/2025", invoice: "HM-2025-25069 HM-2025-25201", invoiceDate: "15/06/2025 23/08/2025", amount: 88262.50, comments: "Recvd. 13/08/25 stg1 Recd. 04/09/2025 stg-2"},
-            {srNo: 97, client: "NOV_03", work: "Additional Conduiting work", poNumber: "PO-0005375", poValue: 18566, poDate: "06/07/2025", invoice: "HM-2025-25197", invoiceDate: "14/07/25", amount: 21351.59, comments: ""},
-            {srNo: 98, client: "Aujan", work: "VFD controller fixing and termination", poNumber: "ORD61240", poValue: 3680, poDate: "08/06/2025", invoice: "", invoiceDate: "", amount: 0, comments: ""},
-        ];
+        // Your Google Sheet ID
+        const SHEET_ID = '1fGuQtyQ2k8nxqDaEa2wRyu61U5NN0WmsLTIVaifY8bQ';
+        const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 
         function HamcoDashboard() {
+            const [rawData, setRawData] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [lastUpdated, setLastUpdated] = useState(null);
             const [searchTerm, setSearchTerm] = useState('');
             const [filterStatus, setFilterStatus] = useState('all');
             const [activeTab, setActiveTab] = useState('overview');
 
+            // Fetch data from Google Sheets
+            const fetchData = async () => {
+                setLoading(true);
+                setError(null);
+                try {
+                    const response = await fetch(CSV_URL);
+                    if (!response.ok) throw new Error('Failed to fetch data from Google Sheets');
+                    
+                    const csvText = await response.text();
+                    
+                    Papa.parse(csvText, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (results) => {
+                            const data = results.data
+                                .filter(row => row['Sr. No.'] && row['Sr. No.'] !== 'Sr. No.')
+                                .map(row => ({
+                                    srNo: parseInt(row['Sr. No.']) || 0,
+                                    client: row['Client'] || '',
+                                    work: row['Nature of Work'] || '',
+                                    poNumber: row['PO Number'] || '',
+                                    poValue: parseFloat(row['PO Value']?.replace(/,/g, '')) || 0,
+                                    poDate: row['PO Date'] || '',
+                                    invoice: row['Invoice'] || '',
+                                    invoiceDate: row['Date'] || '',
+                                    amount: parseFloat(row['Amount']?.replace(/,/g, '')) || 0,
+                                    comments: row['Comments'] || ''
+                                }))
+                                .filter(item => item.srNo > 0);
+                            
+                            setRawData(data);
+                            setLastUpdated(new Date());
+                            setLoading(false);
+                        },
+                        error: (error) => {
+                            setError('Error parsing data: ' + error.message);
+                            setLoading(false);
+                        }
+                    });
+                } catch (err) {
+                    setError(err.message);
+                    setLoading(false);
+                }
+            };
+
+            // Load data on mount
+            useEffect(() => {
+                fetchData();
+            }, []);
+
             const getDaysOld = (dateStr) => {
                 if (!dateStr) return null;
-                const [day, month, year] = dateStr.split('/');
-                const date = new Date(`20${year}`, month - 1, day);
-                const today = new Date();
-                const diffTime = today - date;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                return diffDays;
+                try {
+                    const [day, month, year] = dateStr.split('/');
+                    const date = new Date(`20${year}`, month - 1, day);
+                    const today = new Date();
+                    const diffTime = today - date;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    return diffDays;
+                } catch {
+                    return null;
+                }
             };
 
             const getStatus = (item) => {
                 if (!item.poNumber) return 'no-po';
                 if (!item.invoice) return 'po-no-invoice';
-                if (item.comments && (item.comments.toLowerCase().includes('received') || item.comments.toLowerCase().includes('recvd') || item.comments.toLowerCase().includes('paid'))) {
+                if (item.comments && (
+                    item.comments.toLowerCase().includes('received') || 
+                    item.comments.toLowerCase().includes('recvd') || 
+                    item.comments.toLowerCase().includes('paid')
+                )) {
                     return 'paid';
                 }
                 const daysOld = getDaysOld(item.invoiceDate);
-                if (daysOld > 60) return 'overdue';
-                return 'pending';
+                if (daysOld && daysOld > 60) return 'overdue';
+                if (item.invoice) return 'pending';
+                return 'unknown';
             };
 
             const processedData = useMemo(() => {
@@ -103,7 +143,7 @@
                     status: getStatus(item),
                     daysOld: item.invoiceDate ? getDaysOld(item.invoiceDate) : null
                 }));
-            }, []);
+            }, [rawData]);
 
             const filteredData = useMemo(() => {
                 return processedData.filter(item => {
@@ -154,13 +194,57 @@
                 return badges[status] || status;
             };
 
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="loader mx-auto mb-4"></div>
+                            <p className="text-gray-600">Loading data from Google Sheets...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
+                            <h3 className="text-red-800 font-semibold mb-2">Error Loading Data</h3>
+                            <p className="text-red-600 text-sm mb-4">{error}</p>
+                            <button 
+                                onClick={fetchData}
+                                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
             return (
                 <div className="min-h-screen p-6">
                     <div className="max-w-7xl mx-auto">
                         {/* Header */}
-                        <div className="mb-8">
-                            <h1 className="text-3xl font-bold text-gray-900 mb-2">Hamco Project Tracker</h1>
-                            <p className="text-gray-600">Track POs, Invoices, and Payment Status</p>
+                        <div className="mb-8 flex justify-between items-start">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900 mb-2">Hamco Project Tracker <span className="text-green-600">●</span></h1>
+                                <p className="text-gray-600">Live data from Google Sheets</p>
+                                {lastUpdated && (
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        Last updated: {lastUpdated.toLocaleTimeString()}
+                                    </p>
+                                )}
+                            </div>
+                            <button 
+                                onClick={fetchData}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Refresh Data
+                            </button>
                         </div>
 
                         {/* Stats Cards */}
